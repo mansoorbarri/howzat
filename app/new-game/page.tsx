@@ -103,7 +103,7 @@ export default function NewGame() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full border-white text-black hover:bg-gray-900"
+                className="w-full border-white text-black hover:bg-gray-200"
                 onClick={() => router.push("/")}
               >
                 Cancel

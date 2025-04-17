@@ -84,6 +84,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       localStorage.setItem("cricketGames", JSON.stringify(games))
       setGame(updatedGame)
     }
+    checkAutoEndGame()
   }
 
   const addWicket = () => {
@@ -154,31 +155,50 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const endGame = (gameData = game) => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
     const gameIndex = games.findIndex((g: any) => g.id === gameData.id)
-
+    
     if (gameIndex !== -1) {
       const updatedGame = { ...gameData }
       updatedGame.status = "completed"
       updatedGame.endTime = new Date().toISOString()
-
-      // Determine winner
-      if (updatedGame.scoreA > updatedGame.scoreB) {
+      
+      // Simply compare the scores directly - they're already numbers
+      const runsA = updatedGame.scoreA
+      const runsB = updatedGame.scoreB
+      
+      // Determine winner based on runs
+      if (runsA > runsB) {
         updatedGame.winner = updatedGame.teamA
-      } else if (updatedGame.scoreB > updatedGame.scoreA) {
+      } else if (runsB > runsA) {
         updatedGame.winner = updatedGame.teamB
       } else {
         updatedGame.winner = "Tie"
       }
-
+      
       games[gameIndex] = updatedGame
       localStorage.setItem("cricketGames", JSON.stringify(games))
       setGame(updatedGame)
       router.push(`/game/${params.id}/summary`)
     }
   }
+  
+  // Function to check if game should auto-end when second team surpasses first team's score
+  const checkAutoEndGame = () => {
+    // Only check if team B is batting (second innings)
+    if (game && game.currentBattingTeam === 'B') {
+      // Direct comparison of score numbers
+      if (game.scoreB > game.scoreA) {
+        console.log("Team B has surpassed Team A's score - automatically ending game")
+        endGame()
+        return true
+      }
+    }
+    return false
+  }
+
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      <header className="border-b border-gray-800 py-4">
+      <header className="border-b border-gray-200 py-4">
         <div className="container mx-auto px-4 flex items-center">
           <Button variant="ghost" className="mr-2 p-1" onClick={() => router.push("/")}>
             <ArrowLeft className="h-5 w-5" />
@@ -210,7 +230,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
                   </span>
                 </div>
 
-                <div className="pt-2 border-t border-gray-800">
+                <div className="pt-2 border-t border-gray-200">
                   <p className="font-medium">Currently Batting: {currentTeam}</p>
                   <p>
                     Extras: W-{game.currentBattingTeam === "A" ? game.extras.wideA : game.extras.wideB}, NB-
@@ -246,42 +266,42 @@ export default function GamePage({ params }: { params: { id: string } }) {
               <div className=" grid grid-cols-3 gap-3">
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(1)}
                 >
                   1 Run
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(2)}
                 >
                   2 Runs
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(3)}
                 >
                   3 Runs
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(4)}
                 >
                   4 Runs
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(6)}
                 >
                   6 Runs
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => setCustomRunsOpen(true)}
                 >
                   More
@@ -291,24 +311,24 @@ export default function GamePage({ params }: { params: { id: string } }) {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(1, true, "wide")}
                 >
                   Wide (+1)
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(1, true, "noBall")}
                 >
                   No Ball (+1)
                 </Button>
-                <Button variant="outline" className="border-white text-black font-bold hover:bg-gray-800" onClick={addWicket}>
+                <Button variant="outline" className="border-white text-black font-bold hover:bg-gray-200" onClick={addWicket}>
                   Wicket
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-white text-black font-bold hover:bg-gray-800"
+                  className="border-white text-black font-bold hover:bg-gray-200"
                   onClick={() => updateScore(0)}
                 >
                   Dot Ball
@@ -370,21 +390,21 @@ export default function GamePage({ params }: { params: { id: string } }) {
       <Dialog open={endGameOpen} onOpenChange={setEndGameOpen}>
         <DialogContent className="bg-black">
           <DialogHeader>
-            <DialogTitle>End Game</DialogTitle>
+            <DialogTitle className="text-white">End Game</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 text-white">
             <p>Are you sure you want to end the game?</p>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              className="border-white text-white hover:"
+              className="border-white text-black hover:bg-gray-200"
               onClick={() => setEndGameOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              className="bg-white hover: text-black"
+              className="bg-white hover: text-black font-bold hover:bg-gray-200"
               onClick={() => {
                 endGame()
                 setEndGameOpen(false)
