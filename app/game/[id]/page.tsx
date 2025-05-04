@@ -42,12 +42,31 @@ export default function GamePage() {
       </div>
     )
   }
+  
+  // --- Add these calculations ---
 
   const currentTeam = game.currentBattingTeam === "A" ? game.teamA : game.teamB
   const currentScore = game.currentBattingTeam === "A" ? game.scoreA : game.scoreB
   const currentWickets = game.currentBattingTeam === "A" ? game.wicketsA : game.wicketsB
-  const currentOvers = game.currentBattingTeam === "A" ? game.oversA : game.oversB
-  const currentBalls = game.currentBattingTeam === "A" ? game.ballsA : game.ballsB
+  const currentOvers = game.currentBattingTeam === "A" ? game.oversA : game.oversA // Corrected: Should be oversA for team A
+  const currentBalls = game.currentBattingTeam === "A" ? game.ballsA : game.ballsA // Corrected: Should be ballsA for team A
+
+  const opposingScore = game.currentBattingTeam === "A" ? game.scoreB : game.scoreA
+  const totalMatchOvers = 20; // Assuming 20 overs per innings, adjust if needed
+
+  // Calculations
+  const runsNeeded = game.currentBattingTeam === 'B' && game.scoreB <= game.scoreA ? game.scoreA + 1 - game.scoreB : 0;
+  const totalBallsInMatch = totalMatchOvers * 6;
+  const ballsBowledByCurrentTeam = (game.currentBattingTeam === 'A' ? game.oversA * 6 + game.ballsA : game.oversB * 6 + game.ballsB);
+  const ballsRemaining = game.currentBattingTeam === 'B' ? totalBallsInMatch - ballsBowledByCurrentTeam : 0;
+
+
+  const crrA = game.oversA * 6 + game.ballsA > 0 ? (game.scoreA / (game.oversA + game.ballsA / 6)).toFixed(2) : '0.00';
+  const crrB = game.oversB * 6 + game.ballsB > 0 ? (game.scoreB / (game.oversB + game.ballsB / 6)).toFixed(2) : '0.00';
+
+  const rrr = game.currentBattingTeam === 'B' && runsNeeded > 0 && ballsRemaining > 0 ? (runsNeeded / (ballsRemaining / 6)).toFixed(2) : 'N/A';
+
+  // --- End calculations ---
 
   const updateScore = (runs: number, isExtra = false, extraType = "") => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
@@ -223,7 +242,7 @@ export default function GamePage() {
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
-            <div className="bg-slate-600 p-6 rounded-lg">
+          <div className="bg-slate-600 p-6 rounded-lg">
               <h2 className="text-xl font-bold mb-4">Scoreboard</h2>
 
               <div className="space-y-4">
@@ -241,13 +260,30 @@ export default function GamePage() {
                   </span>
                 </div>
 
+                {/* --- Add Commentary Phrases Here --- */}
+                {game.currentBattingTeam === 'B' && runsNeeded > 0 && ballsRemaining > 0 && (
+                  <p className="text-lg font-semibold text-yellow-300">
+                    {runsNeeded} runs needed in {ballsRemaining} balls
+                  </p>
+                )}
+
+
                 <div className="pt-2 border-t border-gray-200">
                   <p className="font-medium">Currently Batting: {currentTeam}</p>
                   <p>
                     Extras: W-{game.currentBattingTeam === "A" ? game.extras.wideA : game.extras.wideB}, NB-
                     {game.currentBattingTeam === "A" ? game.extras.noBallA : game.extras.noBallB}
                   </p>
+                   {/* Display CRR for both teams */}
+                   <p>CRR ({game.teamA}): {crrA}</p>
+                   <p>CRR ({game.teamB}): {crrB}</p>
+
+                  {/* Display RRR only if Team B is batting and applicable */}
+                  {game.currentBattingTeam === 'B' && rrr !== 'N/A' && (
+                      <p>RRR: {rrr}</p>
+                  )}
                 </div>
+                 {/* --- End Commentary Phrases --- */}
               </div>
             </div>
 
