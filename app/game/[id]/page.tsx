@@ -1,30 +1,63 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useParams } from "next/navigation" // Import useParams
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Undo2 } from "lucide-react" // Import Undo2 icon
+// Remove useToast import
+// import { useToast } from "@/components/ui/use-toast"
 
-// Remove params from props as we'll use useParams hook
+// Define a type for the game state to ensure consistency
+interface GameState {
+  id: string;
+  teamA: string;
+  teamB: string;
+  scoreA: number;
+  wicketsA: number;
+  oversA: number;
+  ballsA: number;
+  extras: {
+    wideA: number;
+    noBallA: number;
+    wideB: number;
+    noBallB: number;
+  };
+  scoreB: number;
+  wicketsB: number;
+  oversB: number;
+  ballsB: number;
+  currentBattingTeam: "A" | "B";
+  status: "in-progress" | "completed";
+  date: string;
+  time: string;
+  endTime?: string;
+  winner?: string;
+}
+
+
 export default function GamePage() {
   const router = useRouter()
-  // Use the useParams hook to get route parameters in a client component
-  const params = useParams();
-  const id = params.id as string; // Access the id from the hook result
+  const params = useParams()
+  const id = params.id as string
 
-  const [game, setGame] = useState<any>(null)
+  const [game, setGame] = useState<GameState | null>(null) // Use GameState type
   const [loading, setLoading] = useState(true)
   const [customRunsOpen, setCustomRunsOpen] = useState(false)
   const [customRuns, setCustomRuns] = useState("")
   const [endGameOpen, setEndGameOpen] = useState(false)
 
+  // State for undo history
+  const [history, setHistory] = useState<GameState[]>([])
+  const [isUndoing, setIsUndoing] = useState(false) // Flag to prevent saving history during undo
+
+  // Remove toast initialization
+  // const { toast } = useToast()
+
   useEffect(() => {
-    // Load game data from localStorage
-    const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    // Use the id derived from useParams
-    const currentGame = games.find((g: any) => g.id === id)
+    const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]") // Use GameState type
+    const currentGame = games.find((g: GameState) => g.id === id) // Use GameState type
 
     if (currentGame) {
       setGame(currentGame)
@@ -33,7 +66,50 @@ export default function GamePage() {
     }
 
     setLoading(false)
-  }, [id, router]) // id (from useParams) is the dependency
+  }, [id, router])
+
+  // Function to save the current state to history
+  const saveHistory = (currentState: GameState) => {
+    if (isUndoing) return // Don't save history if we are currently undoing
+
+    // Limit history size (e.g., last 20 actions)
+    const historyLimit = 20;
+    setHistory(prevHistory => {
+        const newHistory = [...prevHistory, currentState];
+        if (newHistory.length > historyLimit) {
+            return newHistory.slice(newHistory.length - historyLimit); // Keep only the last `historyLimit` states
+        }
+        return newHistory;
+    });
+  }
+
+  // Function to handle undo
+  const handleUndo = () => {
+      if (history.length === 0) return; // Nothing to undo
+
+      setIsUndoing(true); // Set flag to prevent saving history
+      const previousState = history[history.length - 1]; // Get the last state from history
+
+      // Update game state
+      setGame(previousState);
+
+      // Update history state
+      setHistory(prevHistory => prevHistory.slice(0, -1)); // Remove the last state
+
+      // Update localStorage
+      const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]");
+      const gameIndex = games.findIndex((g: GameState) => g.id === id);
+      if (gameIndex !== -1) {
+          games[gameIndex] = previousState;
+          localStorage.setItem("cricketGames", JSON.stringify(games));
+      }
+
+      // Optional: Add a temporary message or toast (if you decide to add a different feedback system)
+      console.log("Undo action successful"); // Console log for confirmation
+
+      setIsUndoing(false); // Reset flag
+  }
+
 
   if (loading || !game) {
     return (
@@ -42,36 +118,37 @@ export default function GamePage() {
       </div>
     )
   }
-  
-  // --- Add these calculations ---
 
-  const currentTeam = game.currentBattingTeam === "A" ? game.teamA : game.teamB
-  const currentScore = game.currentBattingTeam === "A" ? game.scoreA : game.scoreB
-  const currentWickets = game.currentBattingTeam === "A" ? game.wicketsA : game.wicketsB
-  const currentOvers = game.currentBattingTeam === "A" ? game.oversA : game.oversA // Corrected: Should be oversA for team A
-  const currentBalls = game.currentBattingTeam === "A" ? game.ballsA : game.ballsA // Corrected: Should be ballsA for team A
+  // --- Calculations ---
+  const currentTeamName = game.currentBattingTeam === "A" ? game.teamA : game.teamB;
+  const opposingTeamName = game.currentBattingTeam === "A" ? game.teamB : game.teamA;
 
-  const opposingScore = game.currentBattingTeam === "A" ? game.scoreB : game.scoreA
+  const currentScore = game.currentBattingTeam === "A" ? game.scoreA : game.scoreB;
+  const currentWickets = game.currentBattingTeam === "A" ? game.wicketsA : game.wicketsB;
+  const currentOvers = game.currentBattingTeam === "A" ? game.oversA : game.oversB;
+  const currentBalls = game.currentBattingTeam === "A" ? game.ballsA : game.ballsB;
+
+  const opposingScore = game.currentBattingTeam === "A" ? game.scoreB : game.scoreA;
   const totalMatchOvers = 20; // Assuming 20 overs per innings, adjust if needed
 
-  // Calculations
-  const runsNeeded = game.currentBattingTeam === 'B' && game.scoreB <= game.scoreA ? game.scoreA + 1 - game.scoreB : 0;
+  const runsNeeded = game.currentBattingTeam === 'B' ? Math.max(0, game.scoreA + 1 - game.scoreB) : 0;
   const totalBallsInMatch = totalMatchOvers * 6;
   const ballsBowledByCurrentTeam = (game.currentBattingTeam === 'A' ? game.oversA * 6 + game.ballsA : game.oversB * 6 + game.ballsB);
-  const ballsRemaining = game.currentBattingTeam === 'B' ? totalBallsInMatch - ballsBowledByCurrentTeam : 0;
+  const ballsRemaining = game.currentBattingTeam === 'B' ? Math.max(0, totalBallsInMatch - ballsBowledByCurrentTeam) : 0;
 
 
   const crrA = game.oversA * 6 + game.ballsA > 0 ? (game.scoreA / (game.oversA + game.ballsA / 6)).toFixed(2) : '0.00';
   const crrB = game.oversB * 6 + game.ballsB > 0 ? (game.scoreB / (game.oversB + game.ballsB / 6)).toFixed(2) : '0.00';
 
   const rrr = game.currentBattingTeam === 'B' && runsNeeded > 0 && ballsRemaining > 0 ? (runsNeeded / (ballsRemaining / 6)).toFixed(2) : 'N/A';
-
   // --- End calculations ---
 
   const updateScore = (runs: number, isExtra = false, extraType = "") => {
-    const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    // Use the id derived from useParams
-    const gameIndex = games.findIndex((g: any) => g.id === id)
+    // Save current state to history before modifying
+    saveHistory(game);
+
+    const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]")
+    const gameIndex = games.findIndex((g: GameState) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -90,7 +167,7 @@ export default function GamePage() {
             updatedGame.ballsA = 0
           }
         }
-      } else {
+      } else { // Team B batting
         updatedGame.scoreB += runs
 
         if (extraType === "wide") {
@@ -110,13 +187,15 @@ export default function GamePage() {
       localStorage.setItem("cricketGames", JSON.stringify(games))
       setGame(updatedGame)
     }
-    checkAutoEndGame()
+    checkAutoEndGame(updatedGame) // Pass the updated game state
   }
 
   const addWicket = () => {
-    const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    // Use the id derived from useParams
-    const gameIndex = games.findIndex((g: any) => g.id === id)
+    // Save current state to history before modifying
+    saveHistory(game);
+
+    const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]")
+    const gameIndex = games.findIndex((g: GameState) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -130,11 +209,10 @@ export default function GamePage() {
           updatedGame.ballsA = 0
         }
 
-        // Check if all wickets are down
         if (updatedGame.wicketsA === 10) {
-          updatedGame.currentBattingTeam = "B"
+           updatedGame.currentBattingTeam = "B"
         }
-      } else {
+      } else { // Team B batting
         updatedGame.wicketsB += 1
         updatedGame.ballsB += 1
 
@@ -143,10 +221,9 @@ export default function GamePage() {
           updatedGame.ballsB = 0
         }
 
-        // Check if all wickets are down or if team B has scored more than team A
         if (updatedGame.wicketsB === 10 || updatedGame.scoreB > updatedGame.scoreA) {
           endGame(updatedGame)
-          return
+          return // Exit after calling endGame
         }
       }
 
@@ -157,9 +234,11 @@ export default function GamePage() {
   }
 
   const switchInnings = () => {
-    const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    // Use the id derived from useParams
-    const gameIndex = games.findIndex((g: any) => g.id === id)
+    // Decide if switching innings should be undoable.
+    // For simplicity, we won't add it to undo history with the same button.
+    // If you want it undoable, you'd save history here and handle reverting the team switch in handleUndo.
+    const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]")
+    const gameIndex = games.findIndex((g: GameState) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -173,28 +252,28 @@ export default function GamePage() {
 
   const handleCustomRuns = () => {
     const runs = Number.parseInt(customRuns)
-    if (!isNaN(runs) && runs > 0) {
-      updateScore(runs)
+    if (!isNaN(runs) && runs >= 0) {
+      updateScore(runs) // updateScore saves history internally
       setCustomRunsOpen(false)
       setCustomRuns("")
+    } else {
+        console.error("Invalid input for custom runs:", customRuns); // Log error instead of toast
     }
   }
 
-  const endGame = (gameData = game) => {
-    const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-     // Use gameData.id for finding the game in localStorage, which is the id needed
-    const gameIndex = games.findIndex((g: any) => g.id === gameData.id)
+  const endGame = (gameData: GameState) => { // Use GameState type
+    // Decided not to make endGame undoable via the scoring undo button
+    const games: GameState[] = JSON.parse(localStorage.getItem("cricketGames") || "[]")
+    const gameIndex = games.findIndex((g: GameState) => g.id === gameData.id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...gameData }
       updatedGame.status = "completed"
       updatedGame.endTime = new Date().toISOString()
 
-      // Simply compare the scores directly - they're already numbers
       const runsA = updatedGame.scoreA
       const runsB = updatedGame.scoreB
 
-      // Determine winner based on runs
       if (runsA > runsB) {
         updatedGame.winner = updatedGame.teamA
       } else if (runsB > runsA) {
@@ -205,37 +284,50 @@ export default function GamePage() {
 
       games[gameIndex] = updatedGame
       localStorage.setItem("cricketGames", JSON.stringify(games))
-      setGame(updatedGame)
-      // Use the id derived from useParams for navigation
+      setGame(updatedGame) // Update state before navigating
       router.push(`/game/${id}/summary`)
     }
   }
 
-  // Function to check if game should auto-end when second team surpasses first team's score
-  const checkAutoEndGame = () => {
-    // Only check if team B is batting (second innings)
-    if (game && game.currentBattingTeam === 'B') {
-      // Direct comparison of score numbers
-      if (game.scoreB > game.scoreA) {
+  const checkAutoEndGame = (currentGame: GameState) => { // Accept game state as parameter
+    if (currentGame && currentGame.currentBattingTeam === 'B') {
+      if (currentGame.scoreB > currentGame.scoreA) {
         console.log("Team B has surpassed Team A's score - automatically ending game")
-        endGame()
-        return true
+        // Delay the actual endGame call slightly if needed, but passing updatedGame should be fine
+        endGame(currentGame);
+        return true;
       }
     }
-    return false
+    return false;
   }
 
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <header className="border-b border-gray-200 py-4">
-        <div className="container mx-auto px-4 flex items-center">
-          <Button variant="ghost" className="mr-2 p-1" onClick={() => router.push("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">
-            {game.teamA} vs {game.teamB}
-          </h1>
+        <div className="container mx-auto px-4 flex items-center justify-between"> {/* Added justify-between */}
+          <div className="flex items-center">
+            <Button variant="ghost" className="mr-2 p-1" onClick={() => router.push("/")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">
+              {game.teamA} vs {game.teamB}
+            </h1>
+          </div>
+
+           {/* Undo Button */}
+           <Button
+                variant="outline"
+                size="icon" // Make button size consistent with icon
+                className="bg-white text-black disabled:opacity-50 disabled:cursor-not-allowed" 
+                onClick={handleUndo}
+                disabled={history.length === 0 || isUndoing} // Disable if no history or currently undoing
+            >
+                <Undo2 className="h-5 w-5" />
+                <span className="sr-only">Undo last action</span> {/* Accessibility */}
+            </Button>
+            {/* End Undo Button */}
+
         </div>
       </header>
 
@@ -260,16 +352,26 @@ export default function GamePage() {
                   </span>
                 </div>
 
-                {/* --- Add Commentary Phrases Here --- */}
+                {/* Commentary Phrases */}
                 {game.currentBattingTeam === 'B' && runsNeeded > 0 && ballsRemaining > 0 && (
                   <p className="text-lg font-semibold text-yellow-300">
-                    {runsNeeded} runs needed in {ballsRemaining} balls
+                    {runsNeeded} run{runsNeeded !== 1 ? 's' : ''} needed in {ballsRemaining} ball{ballsRemaining !== 1 ? 's' : ''}
                   </p>
                 )}
+                 {game.currentBattingTeam === 'B' && runsNeeded === 0 && game.scoreB > game.scoreA && (
+                     <p className="text-lg font-semibold text-green-400">
+                       {game.teamB} wins!
+                     </p>
+                 )}
+                 {game.currentBattingTeam === 'B' && game.wicketsB === 10 && game.scoreB <= game.scoreA && (
+                     <p className="text-lg font-semibold text-red-400">
+                        {game.teamA} wins!
+                     </p>
+                 )}
 
 
                 <div className="pt-2 border-t border-gray-200">
-                  <p className="font-medium">Currently Batting: {currentTeam}</p>
+                  <p className="font-medium">Currently Batting: {currentTeamName}</p>
                   <p>
                     Extras: W-{game.currentBattingTeam === "A" ? game.extras.wideA : game.extras.wideB}, NB-
                     {game.currentBattingTeam === "A" ? game.extras.noBallA : game.extras.noBallB}
@@ -283,7 +385,7 @@ export default function GamePage() {
                       <p>RRR: {rrr}</p>
                   )}
                 </div>
-                 {/* --- End Commentary Phrases --- */}
+                 {/* End Commentary Phrases */}
               </div>
             </div>
 
@@ -376,7 +478,7 @@ export default function GamePage() {
                 <Button
                   variant="outline"
                   className="border-white text-black font-bold hover:bg-gray-200"
-                  onClick={() => updateScore(0)}
+                  onClick={() => updateScore(0, false, "dot")} // Mark as dot ball, not extra
                 >
                   Dot Ball
                 </Button>
@@ -385,7 +487,7 @@ export default function GamePage() {
 
             <div className="space-y-3">
               {game.currentBattingTeam === "A" && (
-                <Button className="w-full bg-white text-black font-bold hover:bg-grey-200" onClick={switchInnings}>
+                <Button className="w-full bg-white text-black font-bold hover:bg-gray-200" onClick={switchInnings}>
                   End Innings (Switch to {game.teamB})
                 </Button>
               )}
@@ -406,27 +508,30 @@ export default function GamePage() {
       <Dialog open={customRunsOpen} onOpenChange={setCustomRunsOpen}>
         <DialogContent className="bg-black">
           <DialogHeader>
-            <DialogTitle>Enter Custom Runs</DialogTitle>
+            <DialogTitle className="text-white">Enter Custom Runs</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input
               type="number"
               value={customRuns}
               onChange={(e) => setCustomRuns(e.target.value)}
-              className="border-white "
+              className="border-white bg-gray-700 text-white"
               placeholder="Enter runs"
-              min="1"
+              min="0"
             />
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              className="border-white text-white hover:"
-              onClick={() => setCustomRunsOpen(false)}
+              className="border-white text-white hover:bg-gray-700"
+              onClick={() => {
+                 setCustomRunsOpen(false);
+                 setCustomRuns(""); // Clear input on cancel
+              }}
             >
               Cancel
             </Button>
-            <Button className="bg-white hover: text-black" onClick={handleCustomRuns}>
+            <Button className="bg-white text-black font-bold hover:bg-gray-200" onClick={handleCustomRuns}>
               Add Runs
             </Button>
           </DialogFooter>
@@ -451,9 +556,9 @@ export default function GamePage() {
               Cancel
             </Button>
             <Button
-              className="bg-white hover: text-black font-bold hover:bg-gray-200"
+              className="bg-white text-black font-bold hover:bg-gray-200"
               onClick={() => {
-                endGame()
+                endGame(game); // Pass current game state
                 setEndGameOpen(false)
               }}
             >
