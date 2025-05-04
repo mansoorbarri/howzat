@@ -1,14 +1,19 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation" // Import useParams
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft } from "lucide-react"
 
-export default function GamePage({ params }: { params: { id: string } }) {
+// Remove params from props as we'll use useParams hook
+export default function GamePage() {
   const router = useRouter()
+  // Use the useParams hook to get route parameters in a client component
+  const params = useParams();
+  const id = params.id as string; // Access the id from the hook result
+
   const [game, setGame] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [customRunsOpen, setCustomRunsOpen] = useState(false)
@@ -18,7 +23,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
   useEffect(() => {
     // Load game data from localStorage
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    const currentGame = games.find((g: any) => g.id === params.id)
+    // Use the id derived from useParams
+    const currentGame = games.find((g: any) => g.id === id)
 
     if (currentGame) {
       setGame(currentGame)
@@ -27,7 +33,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     }
 
     setLoading(false)
-  }, [params.id, router])
+  }, [id, router]) // id (from useParams) is the dependency
 
   if (loading || !game) {
     return (
@@ -45,7 +51,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   const updateScore = (runs: number, isExtra = false, extraType = "") => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    const gameIndex = games.findIndex((g: any) => g.id === params.id)
+    // Use the id derived from useParams
+    const gameIndex = games.findIndex((g: any) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -89,7 +96,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   const addWicket = () => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    const gameIndex = games.findIndex((g: any) => g.id === params.id)
+    // Use the id derived from useParams
+    const gameIndex = games.findIndex((g: any) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -131,7 +139,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   const switchInnings = () => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
-    const gameIndex = games.findIndex((g: any) => g.id === params.id)
+    // Use the id derived from useParams
+    const gameIndex = games.findIndex((g: any) => g.id === id)
 
     if (gameIndex !== -1) {
       const updatedGame = { ...games[gameIndex] }
@@ -154,17 +163,18 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   const endGame = (gameData = game) => {
     const games = JSON.parse(localStorage.getItem("cricketGames") || "[]")
+     // Use gameData.id for finding the game in localStorage, which is the id needed
     const gameIndex = games.findIndex((g: any) => g.id === gameData.id)
-    
+
     if (gameIndex !== -1) {
       const updatedGame = { ...gameData }
       updatedGame.status = "completed"
       updatedGame.endTime = new Date().toISOString()
-      
+
       // Simply compare the scores directly - they're already numbers
       const runsA = updatedGame.scoreA
       const runsB = updatedGame.scoreB
-      
+
       // Determine winner based on runs
       if (runsA > runsB) {
         updatedGame.winner = updatedGame.teamA
@@ -173,14 +183,15 @@ export default function GamePage({ params }: { params: { id: string } }) {
       } else {
         updatedGame.winner = "Tie"
       }
-      
+
       games[gameIndex] = updatedGame
       localStorage.setItem("cricketGames", JSON.stringify(games))
       setGame(updatedGame)
-      router.push(`/game/${params.id}/summary`)
+      // Use the id derived from useParams for navigation
+      router.push(`/game/${id}/summary`)
     }
   }
-  
+
   // Function to check if game should auto-end when second team surpasses first team's score
   const checkAutoEndGame = () => {
     // Only check if team B is batting (second innings)
